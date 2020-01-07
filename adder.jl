@@ -12,8 +12,7 @@ function initialstate(sa::BitStr,sb::BitStr)
     reg |> repeat(3n+1,X,[3*baddrs(sa).-1; 3*baddrs(sb)])
 end
 
-function adder(sa::BitStr,sb::BitStr)
-    n = max(bit_length(sa),bit_length(sb))
+function adder(n)
     c = chain(3n+1)
     for i = 1:n
         push!(c,put(3n+1,(3i-2,3i-1,3i,3i+1)=>carrygate))
@@ -23,15 +22,20 @@ function adder(sa::BitStr,sb::BitStr)
         j = n - i
         c = chain(c,put(3n+1,(3j-2,3j-1,3j,3j+1)=>carrygate'),put(3n+1,(3j-2,3j-1,3j)=>sumgate))
     end
-    reg = initialstate(sa,sb)
-    reg |> c
+    c
 end
 
-sa = bit"1010"
-sb = bit"1101"
-n = max(bit_length(sa),bit_length(sb))
-
-reg = adder(sa,sb)
-measure_remove!(reg,[3i-2 for i in 1:n])   #remove carry register
-measure_remove!(reg,[2i-1 for i in 1:n])   #remove a register
-reg |> measure
+using Test
+@testset "quantum adder" begin
+    sa = bit"101010"
+    sb = bit"111101"
+    n = max(bit_length(sa),bit_length(sb))
+    reg = initialstate(sa,sb) |> adder(n)
+    measure_remove!(reg,[3i-2 for i in 1:n])   #remove carry register
+    measure_remove!(reg,[2i-1 for i in 1:n])   #remove a register
+    @test (reg |> measure)[1] ≈ bint(sa) + bint(sb) #test a + b
+    reg = initialstate(sa,sb) |> adder(n)'
+    measure_remove!(reg,[3i-2 for i in 1:n])   #remove carry register
+    measure_remove!(reg,[2i-1 for i in 1:n])   #remove a register
+    @test (reg |> measure)[1] ≈ bint(sb) - bint(sa) #test b - a
+end
